@@ -1,16 +1,21 @@
-from rest_framework import generics, status
+from rest_framework import generics, status, filters
 from rest_framework.response import Response
 from .models import Recipe
 from .serializers import RecipeSerializer, RecipeCreateSerializer, RecipeUpdateSerializer
 from cookbook.mixins import BaseApiMixin
-from rest_framework import filters
+from django_filters.rest_framework import DjangoFilterBackend
+from .filters import RecipeFilter
 
 class RecipeView(BaseApiMixin, generics.GenericAPIView):
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
     post_serializer_class = RecipeCreateSerializer
     patch_serializer_class = RecipeUpdateSerializer
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = RecipeFilter
+    search_fields = ['name', 'description', 'ingredients', 'instructions']
+    ordering_fields = ['name', 'prep_time', 'servings', 'created_at', 'updated_at']
+    ordering = ['-created_at']  # default ordering
 
     def get(self, request, pk=None):
         if pk:
@@ -20,7 +25,7 @@ class RecipeView(BaseApiMixin, generics.GenericAPIView):
             serializer = self.serializer_class(instance)
             return Response(serializer.data)
 
-        queryset = self.get_queryset()
+        queryset = self.filter_queryset(self.get_queryset())
         serializer = self.serializer_class(queryset, many=True)
         return Response(serializer.data)
 
