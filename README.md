@@ -4,7 +4,7 @@ A RESTful API for managing cooking recipes, built with Django and Django REST Fr
 
 ## Features
 
-- Create, read, update, and delete recipes
+- Create, read, update recipes
 - Search and filter recipes
 - Pagination support
 - Docker support for easy deployment
