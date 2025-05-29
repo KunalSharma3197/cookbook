@@ -1,0 +1,114 @@
+#!/bin/bash
+
+# Function to display help message
+show_help() {
+    echo "Usage: ./run [command]"
+    echo ""
+    echo "Commands:"
+    echo "  up          - Start the application"
+    echo "  down        - Stop the application"
+    echo "  logs        - Show application logs"
+    echo "  shell       - Open Django shell"
+    echo "  migrate     - Run database migrations"
+    echo "  makemigrations - Create new migrations"
+    echo "  test        - Run tests"
+    echo "  build       - Rebuild containers"
+    echo "  restart     - Restart containers"
+    echo "  clean       - Remove all containers and volumes"
+    echo "  help        - Show this help message"
+}
+
+# Function to check if containers are running
+check_running() {
+    if ! docker-compose ps | grep -q "cookbook.*Up"; then
+        echo "Error: Application is not running. Start it first with './run up'"
+        exit 1
+    fi
+}
+
+# Function to check MySQL connection
+check_mysql() {
+    echo "Checking MySQL connection..."
+    if ! docker-compose exec db mysqladmin ping -h localhost -u root -proot --silent; then
+        echo "Error: Cannot connect to MySQL. Please check if the database is running."
+        exit 1
+    fi
+    echo "MySQL connection successful!"
+}
+
+# Function to wait for MySQL
+wait_for_mysql() {
+    echo "Waiting for MySQL to be ready..."
+    for i in {1..30}; do
+        if docker-compose exec db mysqladmin ping -h localhost -u root -proot --silent; then
+            echo "MySQL is ready!"
+            return 0
+        fi
+        echo "Waiting for MySQL... ($i/30)"
+        sleep 2
+    done
+    echo "Error: MySQL did not become ready in time"
+    exit 1
+}
+
+case "$1" in
+    "up")
+        echo "Starting application..."
+        docker-compose up -d
+        wait_for_mysql
+        check_mysql
+        echo "Running migrations..."
+        docker-compose exec cookbook python manage.py migrate
+        echo "Application is ready!"
+        ;;
+    "down")
+        echo "Stopping application..."
+        docker-compose down
+        ;;
+    "logs")
+        check_running
+        docker-compose logs -f cookbook
+        ;;
+    "shell")
+        check_running
+        check_mysql
+        docker-compose exec cookbook python manage.py shell
+        ;;
+    "migrate")
+        check_running
+        check_mysql
+        docker-compose exec cookbook python manage.py migrate
+        ;;
+    "makemigrations")
+        check_running
+        check_mysql
+        docker-compose exec cookbook python manage.py makemigrations
+        ;;
+    "test")
+        check_running
+        check_mysql
+        docker-compose exec cookbook python manage.py test
+        ;;
+    "build")
+        echo "Rebuilding containers..."
+        docker-compose build
+        ;;
+    "restart")
+        echo "Restarting containers..."
+        docker-compose restart
+        wait_for_mysql
+        check_mysql
+        ;;
+    "clean")
+        echo "Cleaning up containers and volumes..."
+        docker-compose down -v
+        ;;
+    "help"|"")
+        show_help
+        ;;
+    *)
+        echo "Unknown command: $1"
+        show_help
+        exit 1
+        ;;
+esac
